@@ -2,6 +2,28 @@ import json
 import ijson
 
 
+def traverse_json(parser):
+    """
+    Traverse a tree-shaped JSON and print the values of all leaf nodes.
+    """
+    lsp_tree_info_values = []
+    stack = []
+    # Get an ijson parser for the node
+    for prefix, event, value in parser:
+        # If the event is the start of an array or object, recurse into it
+        if event == 'start_array' or event == 'start_map':
+            stack.append(prefix)
+        elif event == 'end_array' or event == 'end_map':
+            print(stack.pop())
+        elif event == 'key' and value == 'lspTreeInfo':
+            lsp_prefix = '.'.join(stack) + '.' + value
+            lsp_parser = ijson.parse(parser)
+            for lsp_prefix, lsp_event, lsp_value in lsp_parser:
+                if lsp_event == 'number' or lsp_event == 'string' or lsp_event == 'boolean':
+                    lsp_tree_info_values.append(lsp_value)
+    return lsp_tree_info_values
+
+
 class json_wrapper:
     def __init__(self, path):
         self.analyze_json(path)
@@ -9,13 +31,16 @@ class json_wrapper:
     result = []
 
     class Token:
-        def __init__(self, name, range, definition, reference, uri, children):
+        def __init__(self, uuid, name, range, definition, reference, mappingNum, children, reference_uuid):
+            self.uuid = uuid
             self.name = name
             self.range = range
             self.definition = definition
             self.reference = reference
-            self.uri = uri
+            # self.uri = uri
             self.children = children
+            self.mappingNum = mappingNum
+            self.reference_uuid = reference_uuid
 
     class function:
         def __init__(self, name, tokens):
@@ -29,27 +54,6 @@ class json_wrapper:
             self.child_func = child_func
             self.child_var = child_var
             self.child_class = child_class
-
-    def traverse_json(parser):
-        """
-        Traverse a tree-shaped JSON and print the values of all leaf nodes.
-        """
-        lsp_tree_info_values = []
-        stack = []
-        # Get an ijson parser for the node
-        for prefix, event, value in parser:
-            # If the event is the start of an array or object, recurse into it
-            if event == 'start_array' or event == 'start_map':
-                stack.append(prefix)
-            elif event == 'end_array' or event == 'end_map':
-                print(stack.pop())
-            elif event == 'key' and value == 'lspTreeInfo':
-                lsp_prefix = '.'.join(stack) + '.' + value
-                lsp_parser = ijson.parse(parser)
-                for lsp_prefix, lsp_event, lsp_value in lsp_parser:
-                    if lsp_event == 'number' or lsp_event == 'string' or lsp_event == 'boolean':
-                        lsp_tree_info_values.append(lsp_value)
-        return lsp_tree_info_values
 
     # def get_lsp_tree_values(parser):
     #     # Create an ijson parser for the JSON data
@@ -142,31 +146,20 @@ class json_wrapper:
         # print('node',type(node))
         # for key, value in lsp_info.items():
         #     print('key ',key)
-
         if lsp_info['type'] == 'func':
             token_in_func = []
             for item in lsp_info['children']:
                 token_in_func.append(
-                    self.Token(item['name'], item['startLocation'], item['definition'], item['reference'], item['uri'],
-                               item['children']))
+                    self.Token(item['uuid'], item['name'], item['startLocation'], item['definition'], item['reference'],
+                               item['mappingNum'],
+                               item['children'], item['reference_uuid']))
             func = self.function(lsp_info['name'], token_in_func)
             self.result.append(func)
         else:
-            token = self.Token(lsp_info['name'], lsp_info['startLocation'], lsp_info['definition'],
-                               lsp_info['reference'], lsp_info['uri'], lsp_info['children'])
+            token = self.Token(lsp_info['uuid'], lsp_info['name'], lsp_info['startLocation'], lsp_info['definition'],
+                               lsp_info['reference'], lsp_info['mappingNum'], lsp_info['children'],
+                               lsp_info['reference_uuid'])
             tokenList.append(token)
             for item in lsp_info['children']:
                 self.traverse_lsp_info_tree(item, tokenList)
             self.result.append(token)
-
-    # Press the green button in the gutter to run the script.
-    # if __name__ == '__main__':
-    #      analyze_json("Json/tree_info3.json")
-    #      for item in result:
-    #          if(type(item)==function):
-    #              print(item.name)
-    #              for token in item.token:
-    #                  print('    ',token.name)
-    #          else:
-    #              print(item.name)
-    #      # print(analyze_json_with_ijson("Json/tree_info.json"))
