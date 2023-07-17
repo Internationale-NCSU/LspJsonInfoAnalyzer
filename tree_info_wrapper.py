@@ -40,7 +40,7 @@ def get_mapping_info(json_tree):
     return [data, reverse_map]
 
 
-def wrap_json_to_tree(data, tree_node_cur, tree_node_p, uuid_tree_node_mapping, path_mapping):
+def wrap_json_to_tree(data, uuid_tree_node_mapping, path_mapping):
     def create_lsp_info_node(json_data):
         # print('lsp tree node name:', json_data['name'])
         path = path_mapping[json_data['mappingNum']]
@@ -50,7 +50,7 @@ def wrap_json_to_tree(data, tree_node_cur, tree_node_p, uuid_tree_node_mapping, 
         elif json_data['type'] == 'others':
             node_type_ = node_type.TOKEN
         node = tree_node(json_data['uuid'], node_type_, json_data['name'], path, json_data['reference_uuid'],
-                         json_data['definition'],[],[])
+                         json_data['definition'], [], [])
         uuid_tree_node_mapping[json_data['uuid']] = node
         if len(json_data['children']) != 0:
             for item in json_data['children']:
@@ -75,16 +75,31 @@ def wrap_json_to_tree(data, tree_node_cur, tree_node_p, uuid_tree_node_mapping, 
             node.children_tree_nodes.append(create_lsp_info_node(json_data['lspTreeInfo'][0]))
         return node
 
+    def assign_parent_relation(cur_node: tree_node):
+        if len(cur_node.children_tree_nodes) != 0:
+            for item in cur_node.children_tree_nodes:
+                item.parent_tree_node = cur_node
+                assign_parent_relation(item)
+
     root = create_node(data)
+    assign_parent_relation(root)
     return root
 
 
-def traverse_tree(root: tree_node):
-    print('name:', root.name, ', uuid:', root.uuid, '')
+def traverse_tree(root: tree_node,uuid_tree_node_mapping):
+    reference_nodes = []
+    print('token name:', root.name, ', uuid:', root.uuid, ', ')
+    for uuid in root.reference_tree_nodes:
+        print('reference_uuid:', uuid)
+        if uuid in uuid_tree_node_mapping.keys():
+            reference_nodes.append(uuid_tree_node_mapping[uuid])
+    if len(reference_nodes)!=0:
+        print('===== reference node =====')
+        for item in reference_nodes:
+            print(item.name,' ',item.uuid)
+        print("==========================")
     for node in root.children_tree_nodes:
-        traverse_tree(node)
-
-
+        traverse_tree(node, uuid_tree_node_mapping)
 def generate_lsp_info_tree(path):
     with open(path, 'r', encoding='utf-8') as f:
         json_tree = json.load(f)
@@ -93,8 +108,8 @@ def generate_lsp_info_tree(path):
         # print('data:', data)
         # print('path_mapping:', reverse_map)
         uuid_tree_node_mapping = {}
-        root = wrap_json_to_tree(data, None, None, uuid_tree_node_mapping, reverse_map)
-        traverse_tree(root)
+        root = wrap_json_to_tree(data, uuid_tree_node_mapping, reverse_map)
+        traverse_tree(root, uuid_tree_node_mapping)
 
 
 if __name__ == "__main__":
