@@ -50,7 +50,7 @@ def wrap_json_to_tree(data, uuid_tree_node_mapping, path_mapping):
         elif json_data['type'] == 'others':
             node_type_ = node_type.TOKEN
         node = tree_node(json_data['uuid'], node_type_, json_data['name'], path, json_data['reference_uuid'],
-                         json_data['definition'], [], [])
+                         json_data['definition_uuid'], [], [])
         uuid_tree_node_mapping[json_data['uuid']] = node
         if len(json_data['children']) != 0:
             for item in json_data['children']:
@@ -97,7 +97,8 @@ def traverse_tree(root: tree_node,uuid_tree_node_mapping):
         print('===== reference node =====')
         for item in reference_nodes:
             print(item.name,' ',item.uuid)
-        print("==========================")
+        print("======definition node=======")
+        print(uuid_tree_node_mapping[root.definition_tree_node].name)
     for node in root.children_tree_nodes:
         traverse_tree(node, uuid_tree_node_mapping)
 def generate_lsp_info_tree(path):
